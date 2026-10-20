@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 import mongoose from 'mongoose';
+import { v2 as cloudinary } from 'cloudinary';
 import Project from '../models/Project.js';
 import { requireAdmin } from '../middleware/auth.js';
 
@@ -13,15 +14,25 @@ const routeDir = path.dirname(fileURLToPath(import.meta.url));
 const uploadDir = path.resolve(routeDir, '../../uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 const maxUploadMb = Number(process.env.MAX_UPLOAD_MB || 12);
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 10);
-    cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`);
+const cloudinaryEnabled = Boolean(process.env.CLOUDINARY_URL);
+if (cloudinaryEnabled) cloudinary.config({ secure: true });
+
+async function storeFile(file) {
+  if (cloudinaryEnabled) {
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream({ folder: 'lobna-portfolio', resource_type: 'image' }, (error, uploaded) => error ? reject(error) : resolve(uploaded));
+      stream.end(file.buffer);
+    });
+    return result.secure_url;
   }
-});
+  const ext = path.extname(file.originalname || '').toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 10);
+  const filename = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
+  fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+  return `/uploads/${filename}`;
+}
+
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: maxUploadMb * 1024 * 1024, files: 9 },
   fileFilter: (_req, file, cb) => {
     const valid = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'].includes(file.mimetype);
@@ -32,7 +43,7 @@ const mediaFields = upload.fields([{ name: 'coverImage', maxCount: 1 }, { name: 
 const isHttpUrl = value => !value || (typeof value === 'string' && /^https?:\/\//i.test(value));
 const optionalUrlFields = ['repositoryUrl', 'documentationUrl', 'demoUrl', 'videoUrl'];
 
-function parseBody(body, files, existing = {}) {
+async function parseBody(body, files, existing = {}) {
   const next = { ...body };
   for (const field of ['content', 'technologies', 'galleryImages']) {
     if (typeof next[field] === 'string') {
@@ -50,9 +61,9 @@ function parseBody(body, files, existing = {}) {
   const uploadedCover = files?.coverImage?.[0];
   const uploadedGallery = files?.galleryImages || [];
   const submittedCover = Object.prototype.hasOwnProperty.call(next, 'coverImage') ? String(next.coverImage || '') : String(existing.coverImage || '');
-  next.coverImage = uploadedCover ? `/uploads/${uploadedCover.filename}` : submittedCover;
+  next.coverImage = uploadedCover ? await storeFile(uploadedCover) : submittedCover;
   const oldGallery = Array.isArray(next.galleryImages) ? next.galleryImages : existing.galleryImages || [];
-  next.galleryImages = [...oldGallery, ...uploadedGallery.map(file => `/uploads/${file.filename}`)].slice(0, 12);
+  next.galleryImages = [...oldGallery, ...(await Promise.all(uploadedGallery.map(storeFile)))].slice(0, 12);
   return next;
 }
 
@@ -76,7 +87,7 @@ router.post('/', requireAdmin, (req, res, next) => mediaFields(req, res, async e
   if (error) return next(error);
   if (mongoose.connection.readyState !== 1) return res.status(503).json({ message: 'MongoDB est indisponible.' });
   try {
-    const data = parseBody(req.body, req.files);
+    const data = await parseBody(req.body, req.files);
     if (!data.slug) return res.status(400).json({ message: 'Le slug du projet est obligatoire.' });
     if (!data.content?.fr?.title?.trim()) return res.status(400).json({ message: 'Le titre français du projet est obligatoire.' });
     const project = await Project.create(data);
@@ -93,7 +104,7 @@ router.put('/:id', requireAdmin, (req, res, next) => mediaFields(req, res, async
   try {
     const current = await Project.findById(req.params.id);
     if (!current) return res.status(404).json({ message: 'Projet introuvable.' });
-    const data = parseBody(req.body, req.files, current.toObject());
+    const data = await parseBody(req.body, req.files, current.toObject());
     if (!data.slug) return res.status(400).json({ message: 'Le slug du projet est obligatoire.' });
     if (!data.content?.fr?.title?.trim()) return res.status(400).json({ message: 'Le titre français du projet est obligatoire.' });
     Object.assign(current, data);

@@ -4,6 +4,8 @@ import { io } from 'socket.io-client';
 import { useLanguage } from '../context/LanguageContext';
 import { apiRequest } from '../lib/api';
 
+const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL || '').replace(/\/+$/, '');
+
 export default function NotificationBell({ token, onNewMessage }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -25,7 +27,7 @@ export default function NotificationBell({ token, onNewMessage }) {
     refresh();
     const poll = setInterval(refresh, 30000);
 
-    const socket = io({ auth: { token } });
+    const socket = io(SOCKET_URL || undefined, { auth: { token } });
     socketRef.current = socket;
     socket.on('connect', () => setLive(true));
     socket.on('disconnect', () => setLive(false));

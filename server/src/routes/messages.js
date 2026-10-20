@@ -5,8 +5,18 @@ import Message from '../models/Message.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
+const NOTIFY_URL = (process.env.NOTIFY_URL || '').replace(/\/+$/, '');
 const messageLimiter = rateLimit({ windowMs: 10 * 60 * 1000, limit: 6, standardHeaders: 'draft-8', legacyHeaders: false, message: { message: 'Trop de messages envoyés. Réessayez dans 10 minutes.' } });
 const dbOffline = res => mongoose.connection.readyState !== 1 ? (res.status(503).json({ message: 'MongoDB est indisponible. Configurez MONGO_URI puis relancez le serveur.' }), true) : false;
+
+function relayToRealtime(message) {
+  if (!NOTIFY_URL) return;
+  fetch(`${NOTIFY_URL}/api/notify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-notify-secret': process.env.NOTIFY_SECRET || '' },
+    body: JSON.stringify({ message })
+  }).catch(error => console.error('Realtime relay failed:', error.message));
+}
 
 router.post('/', messageLimiter, async (req, res, next) => {
   try {
@@ -21,6 +31,7 @@ router.post('/', messageLimiter, async (req, res, next) => {
     if (!message || message.length > 4000) return res.status(400).json({ message: 'Le message est obligatoire (4000 caractères max.).' });
     const created = await Message.create({ name, email, phone, subject, message });
     req.app.get('io')?.to('admins').emit('message:new', created.toObject());
+    relayToRealtime(created.toObject());
     return res.status(201).json({ message: created });
   } catch (error) { next(error); }
 });
