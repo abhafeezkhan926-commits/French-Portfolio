@@ -20,7 +20,14 @@ if (cloudinaryEnabled) cloudinary.config({ secure: true });
 async function storeFile(file) {
   if (cloudinaryEnabled) {
     const result = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream({ folder: 'lobna-portfolio', resource_type: 'image' }, (error, uploaded) => error ? reject(error) : resolve(uploaded));
+      const stream = cloudinary.uploader.upload_stream({ folder: 'lobna-portfolio', resource_type: 'image' }, (error, uploaded) => {
+        if (!error) return resolve(uploaded);
+        const httpCode = error.http_code ? ` (${error.http_code})` : '';
+        const hint = [401, 403].includes(error.http_code)
+          ? ' — clé API, secret ou cloud name invalide : recopiez CLOUDINARY_URL depuis les réglages Cloudinary (Settings > API Keys)'
+          : ` — ${error.message}`;
+        reject(new Error(`Cloudinary: upload refusé${httpCode}${hint}`));
+      });
       stream.end(file.buffer);
     });
     return result.secure_url;
