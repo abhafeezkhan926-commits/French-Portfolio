@@ -73,6 +73,7 @@ app.get(/^\/(?!api(?:\/|$)|uploads(?:\/|$)).*/, (_req, res, next) => {
 
 app.use((error, _req, res, _next) => {
   if (error?.message?.startsWith('Formats acceptés')) return res.status(400).json({ message: error.message });
+  if (error?.message?.startsWith('Cloudinary')) return res.status(503).json({ message: error.message });
   if (error?.name === 'MulterError') {
     const message = error.code === 'LIMIT_FILE_SIZE'
       ? `Chaque image doit peser moins de ${Number(process.env.MAX_UPLOAD_MB || 12)} Mo.`

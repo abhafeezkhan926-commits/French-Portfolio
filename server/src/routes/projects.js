@@ -27,7 +27,12 @@ async function storeFile(file) {
   }
   const ext = path.extname(file.originalname || '').toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 10);
   const filename = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
-  fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+  try {
+    fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+  } catch (error) {
+    if (error?.code === 'EROFS') throw new Error("Cloudinary n'est pas configuré : ajoutez CLOUDINARY_URL dans les variables d'environnement Vercel pour activer l'upload des images.");
+    throw error;
+  }
   return `/uploads/${filename}`;
 }
 
