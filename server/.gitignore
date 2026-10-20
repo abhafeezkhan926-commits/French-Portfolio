@@ -1,3 +1,6 @@
 .env
 uploads/*
 !uploads/.gitkeep
+
+.vercel
+.env*

@@ -29,3 +29,5 @@ server/uploads/*
 Thumbs.db
 .vercel/
 .render/
+.vercel
+.env*

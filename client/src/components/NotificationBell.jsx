@@ -15,11 +15,15 @@ export default function NotificationBell({ token, onNewMessage }) {
   useEffect(() => {
     if (!token) return undefined;
     let active = true;
-    apiRequest('/api/messages', { token }).then(data => {
-      if (!active) return;
-      setMessages(data.messages || []);
-      setUnread(data.unread || 0);
-    }).catch(() => { });
+    const refresh = () => {
+      apiRequest('/api/messages', { token }).then(data => {
+        if (!active) return;
+        setMessages(data.messages || []);
+        setUnread(data.unread || 0);
+      }).catch(() => { });
+    };
+    refresh();
+    const poll = setInterval(refresh, 30000);
 
     const socket = io({ auth: { token } });
     socketRef.current = socket;
@@ -31,7 +35,7 @@ export default function NotificationBell({ token, onNewMessage }) {
       setUnread(count => count + 1);
       onNewMessage?.();
     });
-    return () => { active = false; socket.disconnect(); socketRef.current = null; };
+    return () => { active = false; clearInterval(poll); socket.disconnect(); socketRef.current = null; };
   }, [token, onNewMessage]);
 
   const toggle = () => {

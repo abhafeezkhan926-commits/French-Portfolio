@@ -1,4 +1,5 @@
-﻿const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+﻿const PROD_API_BASE = import.meta.env.PROD ? 'https://french-portfolio-ppv5.vercel.app' : '';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || PROD_API_BASE).replace(/\/+$/, '');
 
 function resolveApiUrl(url) {
   if (/^https?:\/\//i.test(url)) return url;
