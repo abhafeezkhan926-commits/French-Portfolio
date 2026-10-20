@@ -1,63 +1,21 @@
 import { Router } from 'express';
 import multer from 'multer';
-import path from 'node:path';
-import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import crypto from 'node:crypto';
 import mongoose from 'mongoose';
+import Media from '../models/Media.js';
 import Project from '../models/Project.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
-const routeDir = path.dirname(fileURLToPath(import.meta.url));
-const uploadDir = path.resolve(routeDir, '../../uploads');
-fs.mkdirSync(uploadDir, { recursive: true });
 const maxUploadMb = Number(process.env.MAX_UPLOAD_MB || 12);
-// The Cloudinary SDK parses CLOUDINARY_URL at import time and throws on malformed
-// values, which would crash the whole serverless function — so import it lazily
-// only when the value looks valid.
-const cloudinaryUrl = String(process.env.CLOUDINARY_URL || '').trim();
-const cloudinaryEnabled = cloudinaryUrl.startsWith('cloudinary://');
-const cloudinaryConfigError = process.env.CLOUDINARY_URL && !cloudinaryEnabled
-  ? "CLOUDINARY_URL est invalide : la valeur doit commencer par cloudinary:// (sans préfixe CLOUDINARY_URL=). Recopiez la variable d'environnement depuis les réglages Cloudinary (Settings > API Keys)."
-  : null;
-let cloudinary = null;
-async function loadCloudinary() {
-  cloudinary ??= (await import('cloudinary')).v2;
-  cloudinary.config({ secure: true });
-  return cloudinary;
-}
 
 async function storeFile(file) {
-  if (cloudinaryEnabled) {
-    try {
-      const sdk = await loadCloudinary();
-      const result = await new Promise((resolve, reject) => {
-        const stream = sdk.uploader.upload_stream({ folder: 'lobna-portfolio', resource_type: 'image' }, (error, uploaded) => {
-          if (!error) return resolve(uploaded);
-          const httpCode = error.http_code ? ` (${error.http_code})` : '';
-          const hint = [401, 403].includes(error.http_code)
-            ? ' — clé API, secret ou cloud name invalide : recopiez CLOUDINARY_URL depuis les réglages Cloudinary (Settings > API Keys)'
-            : ` — ${error.message}`;
-          reject(new Error(`Cloudinary: upload refusé${httpCode}${hint}`));
-        });
-        stream.end(file.buffer);
-      });
-      return result.secure_url;
-    } catch (error) {
-      if (error instanceof Error && error.message.startsWith('Cloudinary:')) throw error;
-      throw new Error('Cloudinary: CLOUDINARY_URL est invalide. La valeur doit ressembler à cloudinary://<api_key>:<api_secret>@<cloud_name> — recopiez-la depuis les réglages Cloudinary (Settings > API Keys).');
-    }
-  }
-  const ext = path.extname(file.originalname || '').toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 10);
-  const filename = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
-  try {
-    fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
-  } catch (error) {
-    if (error?.code === 'EROFS') throw new Error(cloudinaryConfigError || "Cloudinary n'est pas configuré : ajoutez CLOUDINARY_URL dans les variables d'environnement Vercel pour activer l'upload des images.");
-    throw error;
-  }
-  return `/uploads/${filename}`;
+  const media = await Media.create({
+    filename: String(file.originalname || 'image').slice(0, 200),
+    mimetype: file.mimetype,
+    size: file.size,
+    data: file.buffer
+  });
+  return `/api/media/${media._id}`;
 }
 
 const upload = multer({

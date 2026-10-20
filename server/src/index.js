@@ -13,6 +13,7 @@ import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
 import settingsRoutes from './routes/settings.js';
 import messageRoutes from './routes/messages.js';
+import mediaRoutes from './routes/media.js';
 import Project from './models/Project.js';
 import SiteSettings from './models/SiteSettings.js';
 import { seedProjects, defaultSettings } from './seedData.js';
@@ -64,6 +65,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/media', mediaRoutes);
 
 app.use('/api', (_req, res) => res.status(404).json({ message: 'Route API introuvable.' }));
 
@@ -73,7 +75,6 @@ app.get(/^\/(?!api(?:\/|$)|uploads(?:\/|$)).*/, (_req, res, next) => {
 
 app.use((error, _req, res, _next) => {
   if (error?.message?.startsWith('Formats acceptés')) return res.status(400).json({ message: error.message });
-  if (error?.message?.startsWith('Cloudinary')) return res.status(503).json({ message: error.message });
   if (error?.name === 'MulterError') {
     const message = error.code === 'LIMIT_FILE_SIZE'
       ? `Chaque image doit peser moins de ${Number(process.env.MAX_UPLOAD_MB || 12)} Mo.`
