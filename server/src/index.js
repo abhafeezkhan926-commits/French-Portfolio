@@ -55,11 +55,11 @@ app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 if (process.env.NODE_ENV !== 'test') app.use(morgan('tiny'));
 app.use('/uploads', express.static(uploadsPath, { maxAge: '7d', immutable: true, dotfiles: 'deny' }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'lobna-portfolio-api', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' }));
 app.use('/api', async (_req, _res, next) => {
   try { await ensureDatabase(); } catch { /* per-route guards respond 503 */ }
   next();
 });
+app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'lobna-portfolio-api', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/settings', settingsRoutes);
