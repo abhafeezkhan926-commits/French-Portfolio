@@ -56,7 +56,10 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('tiny'));
 app.use('/uploads', express.static(uploadsPath, { maxAge: '7d', immutable: true, dotfiles: 'deny' }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'lobna-portfolio-api', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' }));
-app.use('/api', (_req, _res, next) => { ensureDatabase(); next(); });
+app.use('/api', async (_req, _res, next) => {
+  try { await ensureDatabase(); } catch { /* per-route guards respond 503 */ }
+  next();
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/settings', settingsRoutes);
@@ -85,10 +88,10 @@ app.use((error, _req, res, _next) => {
 let dbInitPromise = null;
 
 function ensureDatabase() {
-  if (dbInitPromise || mongoose.connection.readyState >= 1 || process.env.NODE_ENV === 'test') return;
+  if (dbInitPromise || mongoose.connection.readyState >= 1 || process.env.NODE_ENV === 'test') return dbInitPromise;
   if (!process.env.MONGO_URI) {
     console.warn('MONGO_URI absent. Le serveur API démarre, mais la base de données et le CMS resteront indisponibles.');
-    return;
+    return undefined;
   }
   dbInitPromise = mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 })
     .then(async () => {
