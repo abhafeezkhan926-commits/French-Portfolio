@@ -91,9 +91,12 @@ let dbInitPromise = null;
 
 function ensureDatabase() {
   if (process.env.NODE_ENV === 'test') return undefined;
-  // Serverless/Atlas drops idle connections: never trust a cached promise when
-  // the connection is actually down — reconnect instead of serving 503s.
-  if (mongoose.connection.readyState === 1) return dbInitPromise;
+  const state = mongoose.connection.readyState;
+  if (state === 1) return dbInitPromise;
+  // A connect is already in flight — wait for it instead of starting a second
+  // mongoose.connect(), which would abort the first one and never finish.
+  if (state === 2 && dbInitPromise) return dbInitPromise;
+  // Serverless/Atlas drops idle connections: reconnect instead of serving 503s.
   if (!process.env.MONGO_URI) {
     console.warn('MONGO_URI absent. Le serveur API démarre, mais la base de données et le CMS resteront indisponibles.');
     return undefined;
