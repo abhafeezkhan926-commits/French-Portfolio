@@ -4,7 +4,7 @@ import { Activity, ArrowDownUp, ArrowLeft, ArrowUpRight, BadgeCheck, Check, Circ
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { apiRequest, mediaUrl, safeExternalUrl } from '../lib/api';
+import { apiRequest, mediaUrl, safeExternalUrl, localizedContent } from '../lib/api';
 import { fallbackSettings } from '../lib/fallbackProjects';
 import NotificationBell from '../components/NotificationBell';
 
@@ -146,7 +146,7 @@ export default function AdminPage() {
 
   useEffect(() => { if (isAuthenticated) loadData(); }, [isAuthenticated, loadData]);
   const filteredProjects = useMemo(() => projects.filter(project => {
-    const copy = project.content?.[language] || project.content?.fr || {};
+    const copy = localizedContent(project, language);
     const matchesSearch = `${copy.title || ''} ${project.slug || ''} ${(project.technologies || []).join(' ')}`.toLowerCase().includes(search.toLowerCase());
     return matchesSearch && (statusFilter === 'all' || project.status === statusFilter);
   }), [projects, search, statusFilter, language]);
@@ -197,7 +197,7 @@ export default function AdminPage() {
             <div className="project-filters"><label className="admin-search"><Search size={16} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchProjects')} /></label><label className="filter-select"><ArrowDownUp size={14} /><select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="all">{t('allStatuses')}</option><option value="published">{t('publishedStatus')}</option><option value="draft">{t('draftStatus')}</option><option value="coming-soon">{t('comingStatus')}</option></select></label></div>
             {pageError && <div className="form-error admin-page-error">{pageError}<button onClick={loadData}>Réessayer</button></div>}
             {loading ? <div className="admin-loading"><span className="loading-dot" />Chargement de la base de données…</div> : filteredProjects.length ? <div className="admin-project-list">{filteredProjects.map((project, index) => {
-              const copy = project.content?.[language] || project.content?.fr || {};
+              const copy = localizedContent(project, language);
               return <motion.article key={project._id} className="admin-project-row" layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(index * .025, .15) }}>
                 <div className="admin-project-thumb">{project.coverImage ? <img src={mediaUrl(project.coverImage)} alt="" /> : <span className={`admin-thumb-placeholder thumb-${project.category}`}><PencilLine size={18} /></span>}</div>
                 <div className="admin-project-info"><div className="admin-project-title-line"><h3>{copy.title || project.slug}</h3><span className={`status-chip status-${project.status}`}>{statusText(project.status, t)}</span>{project.featured && <span className="featured-chip">FEATURED</span>}</div><p>{copy.description || 'Aucune description renseignée.'}</p><div className="admin-project-meta"><span>/{project.slug}</span><span>{(project.technologies || []).slice(0, 3).join(' · ') || 'No tech tags'}</span></div></div>

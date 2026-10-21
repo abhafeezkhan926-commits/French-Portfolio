@@ -64,3 +64,14 @@ export function safeExternalUrl(value) {
     return '';
   }
 }
+
+// Returns the project copy for the active language, falling back field-by-field
+// to French when the active locale was saved with empty values (empty strings
+// are truthy objects, so a plain `content[language] || content.fr` would
+// incorrectly hide the French text).
+export function localizedContent(project, language) {
+  const fr = project?.content?.fr || {};
+  const loc = project?.content?.[language] || {};
+  const hasValue = value => (typeof value === 'string' && value.trim()) || (Array.isArray(value) && value.length > 0);
+  return { ...fr, ...Object.fromEntries(Object.entries(loc).filter(([, value]) => hasValue(value))) };
+}

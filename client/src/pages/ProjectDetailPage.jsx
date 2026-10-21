@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowUpRight, Check, ExternalLink, Play, Radio, Video } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { apiRequest, mediaUrl, safeExternalUrl } from '../lib/api';
+import { apiRequest, mediaUrl, safeExternalUrl, localizedContent } from '../lib/api';
 import { fallbackProjects, fallbackSettings } from '../lib/fallbackProjects';
 import SiteHeader from '../components/SiteHeader';
 import SiteFooter from '../components/SiteFooter';
@@ -45,7 +45,7 @@ export default function ProjectDetailPage() {
     return () => { active = false; };
   }, []);
   const project = projects.find(item => item.slug === slug);
-  const copy = project?.content?.[language] || project?.content?.fr || {};
+  const copy = project ? localizedContent(project, language) : {};
   if (loading && !project) return <><SiteHeader /><main className="detail-loading page-shell"><span className="loading-dot" />{t('loading')}</main><SiteFooter settings={settings} /></>;
   if (!project) return <><SiteHeader /><main className="not-found page-shell"><span className="section-kicker">404 / {t('notFound')}</span><h1>{t('notFound')}</h1><Link to="/#projects" className="button button-dark"><ArrowLeft size={16} />{t('backProjects')}</Link></main><SiteFooter settings={settings} /></>;
   const demoUrl = safeExternalUrl(project.demoUrl);

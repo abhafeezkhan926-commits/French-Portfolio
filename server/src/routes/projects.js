@@ -44,6 +44,13 @@ async function parseBody(body, files, existing = {}) {
   if (typeof next.featured === 'string') next.featured = next.featured === 'true';
   if (typeof next.order === 'string') next.order = Number(next.order || 100);
   if (typeof next.content === 'string') next.content = JSON.parse(next.content);
+  if (next.content && typeof next.content === 'object' && !Array.isArray(next.content)) {
+    // Drop locales the admin left blank (e.g. only French filled): an empty
+    // locale object is truthy client-side and would block the French fallback.
+    for (const [lang, value] of Object.entries(next.content)) {
+      if (!value || typeof value !== 'object' || !String(value.title || '').trim()) delete next.content[lang];
+    }
+  }
   if (Array.isArray(next.technologies)) next.technologies = next.technologies.map(String).map(s => s.trim()).filter(Boolean).slice(0, 30);
   const uploadedCover = files?.coverImage?.[0];
   const uploadedGallery = files?.galleryImages || [];
@@ -108,6 +115,10 @@ router.delete('/:id', requireAdmin, async (req, res, next) => {
   try {
     const deleted = await Project.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: 'Projet introuvable.' });
+    const mediaIds = [deleted.coverImage, ...(deleted.galleryImages || [])]
+      .map(value => /^\/api\/media\/([a-f0-9]{24})$/i.exec(String(value || ''))?.[1])
+      .filter(Boolean);
+    if (mediaIds.length) await Media.deleteMany({ _id: { $in: mediaIds } });
     res.json({ message: 'Projet supprimé.' });
   } catch (error) { next(error); }
 });

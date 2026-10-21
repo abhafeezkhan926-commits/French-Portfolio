@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { ArrowDownRight, ArrowUpRight, Code2, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { mediaUrl, safeExternalUrl } from '../lib/api';
+import { mediaUrl, safeExternalUrl, localizedContent } from '../lib/api';
 import ProjectArtwork from './ProjectArtwork';
 import GlitchText from './GlitchText';
 
@@ -12,7 +12,7 @@ const categoryLabels = {
 
 export default function ProjectCard({ project, index = 0, isUpcoming = false }) {
   const { t, language } = useLanguage();
-  const copy = project.content?.[language] || project.content?.fr || {};
+  const copy = localizedContent(project, language);
   const demoUrl = safeExternalUrl(project.demoUrl);
   const cover = mediaUrl(project.coverImage);
   const repositoryUrl = safeExternalUrl(project.repositoryUrl);
