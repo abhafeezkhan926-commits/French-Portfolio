@@ -35,7 +35,13 @@ function ProjectEditor({ initialProject, onClose, onSaved, token }) {
   const setLocalized = (field, value) => setForm(current => ({ ...current, content: { ...current.content, [activeLocale]: { ...current.content[activeLocale], [field]: value } } }));
 
   async function submit(event) {
-    event.preventDefault(); setError(''); setBusy(true);
+    event.preventDefault(); setError('');
+    if (!String(form.content?.fr?.title || '').trim()) {
+      setActiveLocale('fr');
+      setError('Le titre français est obligatoire : remplissez le champ Titre dans l’onglet FR, puis réessayez.');
+      return;
+    }
+    setBusy(true);
     try {
       const fd = new FormData();
       fd.append('slug', form.slug || toSlug(form.content?.fr?.title || 'nouveau-projet'));
